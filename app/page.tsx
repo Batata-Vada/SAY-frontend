@@ -6,98 +6,98 @@ import Link from "next/link";
 
 export default function Home() {
 
-    const router = useRouter();
+  const router = useRouter();
 
-    const [name, setName] = useState("");
+  const [name, setName] = useState("");
 
-    useEffect(() => {
+  useEffect(() => {
 
-        async function getUser() {
+    async function getUser() {
 
-            const token = localStorage.getItem("token");
+      const token = localStorage.getItem("token");
 
-            if (!token) {
-                router.push("/register");
-                return;
-            }
+      if (!token) {
+        router.push("/register");
+        return;
+      }
 
-            const response = await fetch(
-                "http://127.0.0.1:5001/me",
-                {
-                    headers: {
-                        "Authorization": token
-                    }
-                }
-            );
-
-            const data = await response.json();
-
-            if (response.ok) {
-
-                setName(data.name);
-
-            } else {
-
-                localStorage.removeItem("token");
-                router.push("/login");
-
-            }
+      const response = await fetch(
+        "http://127.0.0.1:5001/me",
+        {
+          headers: {
+            "Authorization": token
+          }
         }
+      );
 
-        getUser();
+      const data = await response.json();
 
-    }, [router]);
+      if (response.ok) {
 
+        setName(data.name);
 
-    async function logout() {
+      } else {
 
-        const token = localStorage.getItem("token");
+        localStorage.removeItem("token");
+        router.push("/login");
 
-        const response = await fetch(
-            "http://127.0.0.1:5001/logout",
-            {
-                method: "POST",
-                headers: {
-                    "Authorization": token || ""
-                }
-            }
-        );
-
-        const data = await response.json();
-
-        console.log(data);
-
-        if (response.ok) {
-
-            localStorage.removeItem("token");
-
-            router.push("/login");
-        }
+      }
     }
 
+    getUser();
+
+  }, [router]);
+
+
+  async function logout() {
+
+    const token = localStorage.getItem("token");
+
+    const response = await fetch(
+      "http://127.0.0.1:5001/logout",
+      {
+        method: "POST",
+        headers: {
+          "Authorization": token || ""
+        }
+      }
+    );
+
+    const data = await response.json();
+
+    console.log(data);
+
+    if (response.ok) {
+
+      localStorage.removeItem("token");
+
+      router.push("/login");
+    }
+  }
 
 
 
-const steps = [
-  {
-    number: "01",
-    title: "Solve",
-    description:
-      "Everyone starts with the same problem. Think, code, and submit your solution.",
-  },
-  {
-    number: "02",
-    title: "Adapt",
-    description:
-      "Your next problem is selected based on how you performed on the previous one.",
-  },
-  {
-    number: "03",
-    title: "Compete",
-    description:
-      "Challenge yourself alongside others, each following a path suited to their progress.",
-  },
-];
+
+  const steps = [
+    {
+      number: "01",
+      title: "Solve",
+      description:
+        "Everyone starts with the same problem. Think, code, and submit your solution.",
+    },
+    {
+      number: "02",
+      title: "Adapt",
+      description:
+        "Your next problem is selected based on how you performed on the previous one.",
+    },
+    {
+      number: "03",
+      title: "Practice",
+      description:
+        "Challenge yourself alongside others, each following a path suited to their progress.",
+    },
+  ];
 
 
   return (
@@ -124,10 +124,10 @@ const steps = [
 
           <div className="mt-10 flex flex-wrap items-center gap-6">
             <Link
-              href="/competition"
+              href="/practice"
               className="inline-flex items-center gap-3 bg-green-500 px-6 py-3.5 text-sm font-semibold text-neutral-950 transition-colors hover:bg-green-400"
             >
-              Start competing
+              Start practicing
               <span aria-hidden="true">→</span>
             </Link>
 
@@ -274,7 +274,7 @@ const steps = [
             </div>
 
             <Link
-              href="/competition"
+              href="/practice"
               className="inline-flex w-fit items-center gap-3 border border-green-500 px-5 py-3 text-sm font-medium text-green-400 hover:bg-green-500 hover:text-neutral-950"
             >
               Enter SAY <span aria-hidden="true">→</span>

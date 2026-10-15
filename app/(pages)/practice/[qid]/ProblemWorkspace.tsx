@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from "react";
@@ -25,23 +24,72 @@ int main() {
     # Write your solution here
     pass
 
+
 if __name__ == "__main__":
     solve()`,
-    javascript: `function solve() {
-  // Write your solution here
-}
-
-solve();`,
   };
 
   const [code, setCode] = useState(templates.cpp);
   const selectedExample = problem.examples[activeExample];
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   function changeLanguage(next: string) {
     setLanguage(next);
     setCode(templates[next]);
     setStatus("");
   }
+
+  async function handleSubmit() {
+    if (isSubmitting) return;
+
+    setIsSubmitting(true);
+    setStatus("");
+
+    try {
+      const token = localStorage.getItem("token");
+
+      if (!token) {
+        setStatus("Please log in before submitting.");
+        return;
+      }
+
+
+      const apiBase = "http://127.0.0.1:5001";
+
+      const response = await fetch(`${apiBase}/submit`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: token,
+        },
+        body: JSON.stringify({
+          question_id: problem.number,
+          question_title: problem.title,
+          language,
+          code,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setStatus(data.message || data.error || "Submission failed.");
+        return;
+      }
+
+      setStatus(
+        `Submission saved! ID: ${data.submission_id}, file: ${data.filename}`
+      );
+    } catch (error) {
+      console.error("Submission error:", error);
+      setStatus(
+        "Could not connect to the submission server. Please try again."
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
 
   return (
     <main className="h-[calc(100vh-4rem)] min-h-[600px] overflow-hidden bg-neutral-950 text-neutral-100">
@@ -65,8 +113,8 @@ solve();`,
             </span>
             <span className={
               problem.difficulty === "Easy" ? "text-green-400" :
-              problem.difficulty === "Medium" ? "text-yellow-400" :
-              "text-red-400"
+                problem.difficulty === "Medium" ? "text-yellow-400" :
+                  "text-red-400"
             }>
               {problem.difficulty}
             </span>
@@ -139,7 +187,7 @@ solve();`,
               >
                 <option value="cpp">C++</option>
                 <option value="python">Python</option>
-                <option value="javascript">JavaScript</option>
+
               </select>
             </div>
             <button
@@ -178,22 +226,20 @@ solve();`,
                 <button
                   type="button"
                   onClick={() => setActiveTab("examples")}
-                  className={`border-b-2 text-sm ${
-                    activeTab === "examples"
-                      ? "border-green-500 text-white"
-                      : "border-transparent text-neutral-500 hover:text-neutral-300"
-                  }`}
+                  className={`border-b-2 text-sm ${activeTab === "examples"
+                    ? "border-green-500 text-white"
+                    : "border-transparent text-neutral-500 hover:text-neutral-300"
+                    }`}
                 >
                   Test cases
                 </button>
                 <button
                   type="button"
                   onClick={() => setActiveTab("custom")}
-                  className={`border-b-2 text-sm ${
-                    activeTab === "custom"
-                      ? "border-green-500 text-white"
-                      : "border-transparent text-neutral-500 hover:text-neutral-300"
-                  }`}
+                  className={`border-b-2 text-sm ${activeTab === "custom"
+                    ? "border-green-500 text-white"
+                    : "border-transparent text-neutral-500 hover:text-neutral-300"
+                    }`}
                 >
                   Custom input
                 </button>
@@ -208,11 +254,10 @@ solve();`,
                           key={index}
                           type="button"
                           onClick={() => setActiveExample(index)}
-                          className={`px-3 py-1.5 text-xs ${
-                            activeExample === index
-                              ? "bg-neutral-800 text-white"
-                              : "text-neutral-500 hover:text-neutral-300"
-                          }`}
+                          className={`px-3 py-1.5 text-xs ${activeExample === index
+                            ? "bg-neutral-800 text-white"
+                            : "text-neutral-500 hover:text-neutral-300"
+                            }`}
                         >
                           Case {index + 1}
                         </button>
@@ -279,12 +324,11 @@ solve();`,
                   </button>
                   <button
                     type="button"
-                    onClick={() => setStatus(
-                      "Submission service is not connected yet. This button will submit your solution once the backend is available."
-                    )}
-                    className="bg-green-500 px-4 py-2 text-sm font-semibold text-neutral-950 hover:bg-green-400"
+                    onClick={handleSubmit}
+                    disabled={isSubmitting}
+                    className="bg-green-500 px-4 py-2 text-sm font-semibold text-neutral-950 hover:bg-green-400 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    Submit
+                    {isSubmitting ? "Submitting..." : "Submit"}
                   </button>
                 </div>
               </div>
