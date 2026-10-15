@@ -117,6 +117,18 @@ export default function Navbar() {
           >
             Home
           </Link>
+          <Link
+            href="/my-submissions"
+            className="text-sm text-neutral-300 hover:text-white"
+          >
+            Submissions
+          </Link>
+          <Link
+            href="/practice"
+            className="text-sm text-neutral-300 hover:text-white"
+          >
+            Practice
+          </Link>
 
           {isAdmin && (
             <Link
