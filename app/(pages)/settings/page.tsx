@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
     ArrowUpRight,
@@ -116,6 +116,160 @@ export default function SettingsPage() {
         emptyEducation(1),
     ]);
 
+    const [saving, setSaving] = useState(false);
+    const [status, setStatus] = useState("");
+    const [error, setError] = useState("");
+    const [loaded, setLoaded] = useState(false);
+    const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:5001";
+
+    function getHeaders(): HeadersInit {
+        return {
+            "Content-Type": "application/json",
+            Authorization: localStorage.getItem("token") ?? "",
+        };
+    }
+
+    async function responseError(response: Response): Promise<string> {
+        const body = await response.json().catch(() => ({}));
+        return body.message ?? body.error ?? `Request failed (${response.status})`;
+    }
+
+    useEffect(() => {
+        async function loadSettings() {
+            if (!localStorage.getItem("token")) {
+                setError("Please sign in to manage your settings.");
+                setLoaded(true);
+                return;
+            }
+
+            try {
+                const [profileResponse, educationResponse] = await Promise.all([
+                    fetch(`${API_URL}/profile/me`, { headers: getHeaders() }),
+                    fetch(`${API_URL}/education/me`, { headers: getHeaders() }),
+                ]);
+
+                if (!profileResponse.ok) throw new Error(await responseError(profileResponse));
+                if (!educationResponse.ok) throw new Error(await responseError(educationResponse));
+
+                const profileBody = await profileResponse.json();
+                const profile = profileBody.profile;
+                if (profile) {
+                    const keys: Record<string, [string, string]> = {
+                        instagram: ["instagram_url", "show_instagram"],
+                        twitter: ["x_url", "show_x"],
+                        linkedin: ["linkedin_url", "show_linkedin"],
+                        leetcode: ["leetcode_url", "show_leetcode"],
+                        codeforces: ["codeforces_url", "show_codeforces"],
+                        codechef: ["codechef_url", "show_codechef"],
+                    };
+                    setSocialProfiles((current) => current.map((item) => ({
+                        ...item,
+                        value: profile[keys[item.id][0]] ?? "",
+                        visible: profile[keys[item.id][1]] ?? true,
+                    })));
+                }
+
+                const educationBody = await educationResponse.json();
+                const rows = Array.isArray(educationBody.education) ? educationBody.education : [];
+                setEducation(rows.length ? rows.map((row: Record<string, unknown>, index: number) => ({
+                    id: Number(row.id) || index + 1,
+                    institution: String(row.institution ?? ""),
+                    degree: String(row.degree ?? ""),
+                    field: String(row.field_of_study ?? ""),
+                    startYear: String(row.start_year ?? ""),
+                    endYear: String(row.end_year ?? ""),
+                })) : [emptyEducation(1)]);
+                if (rows.length) setEducationVisible(Boolean(rows[0].is_visible));
+            } catch (err) {
+                setError(err instanceof Error ? err.message : "Unable to load settings.");
+            } finally {
+                setLoaded(true);
+            }
+        }
+        loadSettings();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    async function saveSocialProfiles() {
+        setSaving(true);
+        setStatus("");
+        setError("");
+        const keys: Record<string, [string, string]> = {
+            instagram: ["instagram_url", "show_instagram"],
+            twitter: ["x_url", "show_x"],
+            linkedin: ["linkedin_url", "show_linkedin"],
+            leetcode: ["leetcode_url", "show_leetcode"],
+            codeforces: ["codeforces_url", "show_codeforces"],
+            codechef: ["codechef_url", "show_codechef"],
+        };
+        const payload: Record<string, string | boolean> = {};
+        socialProfiles.forEach((item) => {
+            payload[keys[item.id][0]] = item.value.trim();
+            payload[keys[item.id][1]] = item.visible;
+        });
+
+        try {
+            const response = await fetch(`${API_URL}/profile/me`, {
+                method: "PUT",
+                headers: getHeaders(),
+                body: JSON.stringify(payload),
+            });
+            if (!response.ok) throw new Error(await responseError(response));
+            setStatus("Social profiles saved successfully.");
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Unable to save social profiles.");
+        } finally {
+            setSaving(false);
+        }
+    }
+
+    async function saveEducation() {
+        setSaving(true);
+        setStatus("");
+        setError("");
+        const started = education.filter((item) =>
+            item.institution.trim() || item.degree.trim() || item.field.trim() ||
+            item.startYear.trim() || item.endYear.trim()
+        );
+        if (started.some((item) => !item.institution.trim() || !item.degree.trim())) {
+            setError("Each education entry must include an institution and degree.");
+            setSaving(false);
+            return;
+        }
+
+        const payload = started.map((item) => ({
+            institution: item.institution.trim(),
+            degree: item.degree.trim(),
+            field_of_study: item.field.trim(),
+            start_year: item.startYear.trim(),
+            end_year: item.endYear.trim(),
+        }));
+
+        try {
+            const response = await fetch(`${API_URL}/education/me`, {
+                method: "PUT",
+                headers: getHeaders(),
+                body: JSON.stringify({ education: payload, is_visible: educationVisible }),
+            });
+            if (!response.ok) throw new Error(await responseError(response));
+            const body = await response.json();
+            const rows = Array.isArray(body.education) ? body.education : [];
+            setEducation(rows.length ? rows.map((row: Record<string, unknown>, index: number) => ({
+                id: Number(row.id) || index + 1,
+                institution: String(row.institution ?? ""),
+                degree: String(row.degree ?? ""),
+                field: String(row.field_of_study ?? ""),
+                startYear: String(row.start_year ?? ""),
+                endYear: String(row.end_year ?? ""),
+            })) : [emptyEducation(1)]);
+            setStatus("Educational background saved successfully.");
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Unable to save education.");
+        } finally {
+            setSaving(false);
+        }
+    }
+
     function updateSocial(
         id: string,
         field: "value" | "visible",
@@ -182,6 +336,10 @@ export default function SettingsPage() {
                         Manage your account, social profiles, and personal information.
                     </p>
                 </div>
+
+                {status && <p role="status" className="mb-4 text-sm text-emerald-400">{status}</p>}
+                {error && <p role="alert" className="mb-4 text-sm text-red-400">{error}</p>}
+                {!loaded && <p className="mb-4 text-sm text-zinc-500">Loading settings…</p>}
 
                 <form onSubmit={handleSubmit} className="space-y-12">
                     {/* Account information */}
@@ -403,10 +561,12 @@ export default function SettingsPage() {
                         </p>
 
                         <Button
-                            type="submit"
+                            type="button"
+                            disabled={saving || !loaded}
+                            onClick={saveSocialProfiles}
                             className="mt-5 bg-emerald-600 text-white hover:bg-emerald-700"
                         >
-                            Save Social Profiles
+                            {saving ? "Saving…" : "Save Social Profiles"}
                         </Button>
                     </section>
 
@@ -616,10 +776,12 @@ export default function SettingsPage() {
                         )}
 
                         <Button
-                            type="submit"
+                            type="button"
+                            disabled={saving || !loaded}
+                            onClick={saveEducation}
                             className="mt-6 bg-emerald-600 text-white hover:bg-emerald-700"
                         >
-                            Save Educational Background
+                            {saving ? "Saving…" : "Save Educational Background"}
                         </Button>
                     </section>
                 </form>
