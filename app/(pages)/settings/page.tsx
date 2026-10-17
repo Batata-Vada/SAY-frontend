@@ -143,10 +143,14 @@ export default function SettingsPage() {
             }
 
             try {
-                const [profileResponse, educationResponse] = await Promise.all([
-                    fetch(`${API_URL}/profile/me`, { headers: getHeaders() }),
-                    fetch(`${API_URL}/education/me`, { headers: getHeaders() }),
+                const [meResponse, profileResponse, educationResponse] = await Promise.all([
+                    fetch(API_URL + "/me", { headers: getHeaders() }),
+                    fetch(API_URL + "/profile/me", { headers: getHeaders() }),
+                    fetch(API_URL + "/education/me", { headers: getHeaders() }),
                 ]);
+                if (!meResponse.ok) throw new Error(await responseError(meResponse));
+                const me = await meResponse.json();
+                setUsername(me.name ?? "");
 
                 if (!profileResponse.ok) throw new Error(await responseError(profileResponse));
                 if (!educationResponse.ok) throw new Error(await responseError(educationResponse));
@@ -190,6 +194,26 @@ export default function SettingsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    async function saveUsername() {
+        setSaving(true); setStatus(""); setError("");
+        try {
+            const response = await fetch(API_URL + "/me", { method: "PUT", headers: getHeaders(), body: JSON.stringify({ name: username.trim() }) });
+            if (!response.ok) throw new Error(await responseError(response));
+            setStatus("Username updated successfully.");
+        } catch (err) { setError(err instanceof Error ? err.message : "Unable to update username."); }
+        finally { setSaving(false); }
+    }
+
+    async function savePassword() {
+        setSaving(true); setStatus(""); setError("");
+        try {
+            const response = await fetch(API_URL + "/change-password", { method: "PUT", headers: getHeaders(), body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }) });
+            if (!response.ok) throw new Error(await responseError(response));
+            setCurrentPassword(""); setNewPassword("");
+            setStatus("Password updated successfully.");
+        } catch (err) { setError(err instanceof Error ? err.message : "Unable to update password."); }
+        finally { setSaving(false); }
+    }
     async function saveSocialProfiles() {
         setSaving(true);
         setStatus("");
@@ -374,11 +398,8 @@ export default function SettingsPage() {
                                 />
                             </div>
 
-                            <Button
-                                type="submit"
-                                className="bg-emerald-600 text-white hover:bg-emerald-700"
-                            >
-                                Save Username
+                            <Button type="button" disabled={saving || !loaded} onClick={saveUsername} className="bg-emerald-600 text-white hover:bg-emerald-700">
+                                {saving ? "Saving…" : "Save Username"}
                             </Button>
                         </div>
                     </section>
@@ -474,11 +495,8 @@ export default function SettingsPage() {
                                 </div>
                             </div>
 
-                            <Button
-                                type="submit"
-                                className="bg-emerald-600 text-white hover:bg-emerald-700"
-                            >
-                                Update Password
+                            <Button type="button" disabled={saving || !loaded} onClick={savePassword} className="bg-emerald-600 text-white hover:bg-emerald-700">
+                                {saving ? "Saving…" : "Update Password"}
                             </Button>
                         </div>
                     </section>
