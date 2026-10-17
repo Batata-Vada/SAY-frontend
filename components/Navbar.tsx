@@ -195,6 +195,14 @@ export default function Navbar() {
                     >
                       Modify account
                     </Link>
+                    <Link
+                      href="/users/me"
+                      role="menuitem"
+                      onClick={() => setDropdownOpen(false)}
+                      className="block rounded-md px-3 py-2.5 text-sm text-neutral-300 hover:bg-neutral-800 hover:text-white"
+                    >
+                      Public Profile
+                    </Link>
 
                     <button
                       type="button"
