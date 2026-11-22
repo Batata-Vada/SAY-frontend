@@ -21,6 +21,11 @@ type SocialProfile = {
     icon: typeof Code2;
 };
 
+type SocialProfilesFormProps = {
+    isSetup?: boolean;
+    onSaved?: () => void;
+};
+
 const initialProfiles: SocialProfile[] = [
     {
         id: "instagram",
@@ -84,8 +89,13 @@ const initialProfiles: SocialProfile[] = [
     },
 ];
 
-export default function SocialProfilesForm() {
+export default function SocialProfilesForm({
+    isSetup = false,
+    onSaved,
+}: SocialProfilesFormProps) {
     const [profiles, setProfiles] = useState(initialProfiles);
+    const [displayName, setDisplayName] = useState("");
+    const [bio, setBio] = useState("");
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState("");
@@ -102,6 +112,9 @@ export default function SocialProfilesForm() {
 
                 const body = await response.json();
                 const data = body.profile ?? body;
+
+                setDisplayName(String(data.display_name ?? ""));
+                setBio(String(data.bio ?? ""));
 
                 setProfiles(
                     initialProfiles.map((profile) => ({
@@ -139,6 +152,11 @@ export default function SocialProfilesForm() {
     }
 
     async function saveProfiles() {
+        if (!displayName.trim()) {
+            setError("Display name is required.");
+            return;
+        }
+
         setSaving(true);
         setError("");
         setStatus("");
@@ -160,7 +178,20 @@ export default function SocialProfilesForm() {
                 throw new Error(await getErrorMessage(response));
             }
 
-            setStatus("Social profiles saved successfully.");
+            const sayProfileResponse = await apiRequest("/api/me/say-profile", {
+                method: "PATCH",
+                body: JSON.stringify({
+                    display_name: displayName.trim(),
+                    bio: bio.trim() || null,
+                }),
+            });
+
+            if (!sayProfileResponse.ok) {
+                throw new Error(await getErrorMessage(sayProfileResponse));
+            }
+
+            setStatus(isSetup ? "Profile saved successfully." : "Profile updated successfully.");
+            onSaved?.();
         } catch (err) {
             setError(
                 err instanceof Error
@@ -178,9 +209,13 @@ export default function SocialProfilesForm() {
     return (
         <section className="space-y-6">
             <div>
-                <h2 className="text-lg font-medium">Social Profiles</h2>
+                <h2 className="text-lg font-medium">
+                    {isSetup ? "Set up your SAY profile" : "Profile Details"}
+                </h2>
                 <p className="mt-1 text-sm text-zinc-400">
-                    Add your social and competitive programming profiles.
+                    {isSetup
+                        ? "Choose a display name to finish setting up your account."
+                        : "Update your public display name, bio, and profile links."}
                 </p>
             </div>
 
@@ -195,6 +230,44 @@ export default function SocialProfilesForm() {
                     {status}
                 </p>
             )}
+
+            <div className="space-y-4">
+                <div className="space-y-2">
+                    <Label htmlFor="profile-display-name" className="text-zinc-300">
+                        Display name <span className="text-red-400">*</span>
+                    </Label>
+                    <Input
+                        id="profile-display-name"
+                        value={displayName}
+                        onChange={(event) => setDisplayName(event.target.value)}
+                        maxLength={100}
+                        required
+                        disabled={loading || saving}
+                        className="border-zinc-800 bg-zinc-950 text-zinc-100 placeholder:text-zinc-600 focus-visible:ring-emerald-600"
+                    />
+                </div>
+
+                <div className="space-y-2">
+                    <Label htmlFor="profile-bio" className="text-zinc-300">
+                        Bio <span className="text-xs text-zinc-500">(optional)</span>
+                    </Label>
+                    <textarea
+                        id="profile-bio"
+                        value={bio}
+                        onChange={(event) => setBio(event.target.value)}
+                        maxLength={2000}
+                        disabled={loading || saving}
+                        className="min-h-28 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+                    />
+                </div>
+            </div>
+
+            <div>
+                <h3 className="text-lg font-medium">Social Profiles</h3>
+                <p className="mt-1 text-sm text-zinc-400">
+                    Add links to your social and competitive programming profiles (optional).
+                </p>
+            </div>
 
             <div className="space-y-6">
                 {profiles.map((profile) => {
@@ -255,7 +328,7 @@ export default function SocialProfilesForm() {
                 disabled={loading || saving}
                 className="bg-emerald-600 text-white hover:bg-emerald-700"
             >
-                {saving ? "Saving..." : "Save Social Profiles"}
+                {saving ? "Saving..." : isSetup ? "Complete Profile" : "Save Profile"}
             </Button>
         </section>
     );

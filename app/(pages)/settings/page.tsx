@@ -1,12 +1,21 @@
-"use client";
-
+import { redirect } from "next/navigation";
 import { Separator } from "@/components/ui/separator";
 
 import AccountSecurityForm from "./(components)/update"
 import SocialProfilesForm from "./(components)/profiles";
 import EducationForm from "./(components)/education";
 
-export default function SettingsPage() {
+export default async function SettingsPage({
+    searchParams,
+}: {
+    searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+    const params = await searchParams;
+
+    if (params.login === "success") {
+        redirect("/profile-setup");
+    }
+
     return (
         <main className="min-h-screen bg-[#09090b] text-zinc-100">
             <div className="mx-auto w-full max-w-4xl px-5 py-12 sm:px-8">

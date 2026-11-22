@@ -4,9 +4,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:5001";
+import { apiRequest } from "@/app/(pages)/settings/(components)/api";
 
 type User = {
   name?: string;
@@ -26,30 +24,30 @@ export default function Navbar() {
 
   useEffect(() => {
     async function fetchUser() {
-      const token = localStorage.getItem("token");
-
-      if (!token) {
-        router.replace("/login");
-        setLoading(false);
-        return;
-      }
-
       try {
-        const response = await fetch(`${API_URL}/me`, {
-          headers: {
-            Authorization: token,
-          },
+        const response = await apiRequest("/auth/session", {
           cache: "no-store",
         });
 
         if (!response.ok) {
-          localStorage.removeItem("token");
-          router.replace("/login");
           return;
         }
 
-        const data: User = await response.json();
-        setUser(data);
+        const session = await response.json();
+        let displayName = session.say_username;
+        const profileResponse = await apiRequest("/profile/me");
+
+        if (profileResponse.ok) {
+          const body = await profileResponse.json();
+          const profile = body.profile ?? body;
+          displayName = profile.display_name?.trim() || displayName;
+        }
+
+        setUser({
+          name: displayName,
+          privilege: session.privilege,
+          uid: session.uid,
+        });
       } catch (error) {
         console.error("Failed to fetch user:", error);
       } finally {
@@ -61,21 +59,15 @@ export default function Navbar() {
   }, [router]);
 
   async function handleLogout() {
-    const token = localStorage.getItem("token");
-
     setDropdownOpen(false);
 
     try {
-      await fetch(`${API_URL}/logout`, {
+      await apiRequest("/auth/logout", {
         method: "POST",
-        headers: {
-          Authorization: token ?? "",
-        },
       });
     } catch (error) {
       console.error("Logout request failed:", error);
     } finally {
-      localStorage.removeItem("token");
       router.replace("/login");
       router.refresh();
     }

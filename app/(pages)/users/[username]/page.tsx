@@ -25,6 +25,7 @@ interface PublicProfile {
     uid: number;
     username: string;
     name: string;
+    display_name?: string | null;
     bio?: string | null;
 
     instagram_url?: string | null;
@@ -182,6 +183,7 @@ export default function UserProfilePage() {
     const visibleSocialLinks = socialLinks.filter(
         (link) => link.visible && link.url
     );
+    const displayName = profile.display_name?.trim() || profile.name;
 
     return (
         <main className="min-h-screen bg-zinc-950 text-zinc-100">
@@ -191,15 +193,13 @@ export default function UserProfilePage() {
                     <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
                         <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full border border-green-500/30 bg-green-500/10">
                             <span className="text-3xl font-semibold text-green-400">
-                                {profile.name.charAt(0).toUpperCase()}
+                                {displayName.charAt(0).toUpperCase()}
                             </span>
                         </div>
 
                         <div className="min-w-0 flex-1">
-                            <p className="text-sm text-zinc-500">@{profile.username}</p>
-
                             <h1 className="mt-1 text-3xl font-semibold tracking-tight text-white">
-                                {profile.name}
+                                {displayName}
                             </h1>
 
                             {profile.bio && (

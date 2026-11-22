@@ -28,10 +28,6 @@ export default function AccountSecurityForm() {
     useEffect(() => {
         async function loadAccount() {
             try {
-                if (!localStorage.getItem("token")) {
-                    throw new Error("Please sign in to manage your settings.");
-                }
-
                 const response = await apiRequest("/me");
 
                 if (!response.ok) {

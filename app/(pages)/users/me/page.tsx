@@ -16,14 +16,14 @@ import {
     Loader2,
     UserRound,
 } from "lucide-react";
-
-const API_URL =
-    process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:5001";
+import { useRouter } from "next/navigation";
+import { apiRequest } from "../../settings/(components)/api";
 
 interface PublicProfile {
     uid: number;
     username: string;
     name: string;
+    display_name?: string | null;
     bio?: string | null;
 
     instagram_url?: string | null;
@@ -63,6 +63,7 @@ interface SocialLink {
 }
 
 export default function MyProfilePage() {
+    const router = useRouter();
     const [profile, setProfile] = useState<PublicProfile | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -75,23 +76,12 @@ export default function MyProfilePage() {
             setError(null);
 
             try {
-                const token = localStorage.getItem("token");
-
-                if (!token) {
-                    throw new Error("Please sign in to view your profile.");
-                }
-
                 // Get the currently authenticated user's account details.
-                const meResponse = await fetch(`${API_URL}/me`, {
-                    method: "GET",
-                    headers: {
-                        Accept: "application/json",
-                        Authorization: token,
-                    },
-                });
+                const meResponse = await apiRequest("/auth/session");
 
-                if (meResponse.status === 401 || meResponse.status === 403) {
-                    throw new Error("Your session has expired. Please sign in again.");
+                if (meResponse.status === 401) {
+                    router.replace("/login");
+                    return;
                 }
 
                 if (!meResponse.ok) {
@@ -102,14 +92,8 @@ export default function MyProfilePage() {
 
                 // Get the user's public profile, including social links and education.
                 // The backend resolves the profile using User.name.
-                const response = await fetch(
-                    `${API_URL}/profile/${encodeURIComponent(me.name)}`,
-                    {
-                        method: "GET",
-                        headers: {
-                            Accept: "application/json",
-                        },
-                    }
+                const response = await apiRequest(
+                    `/profile/${encodeURIComponent(me.say_username)}`,
                 );
 
                 if (response.status === 404) {
@@ -145,7 +129,7 @@ export default function MyProfilePage() {
         return () => {
             cancelled = true;
         };
-    }, []);
+    }, [router]);
 
     if (loading) {
         return (
@@ -216,6 +200,7 @@ export default function MyProfilePage() {
     const visibleSocialLinks = socialLinks.filter(
         (link) => link.visible && link.url?.trim()
     );
+    const displayName = profile.display_name?.trim() || profile.name;
 
     return (
         <main className="min-h-screen bg-zinc-950 text-zinc-100">
@@ -225,17 +210,13 @@ export default function MyProfilePage() {
                     <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
                         <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full border border-green-500/30 bg-green-500/10">
                             <span className="text-3xl font-semibold text-green-400">
-                                {profile.name.charAt(0).toUpperCase()}
+                                {displayName.charAt(0).toUpperCase()}
                             </span>
                         </div>
 
                         <div className="min-w-0 flex-1">
-                            <p className="text-sm text-zinc-500">
-                                @{profile.username}
-                            </p>
-
                             <h1 className="mt-1 text-3xl font-semibold tracking-tight text-white">
-                                {profile.name}
+                                {displayName}
                             </h1>
 
                             {profile.bio && (
