@@ -33,7 +33,7 @@ export default function Admin() {
             const token = localStorage.getItem("token");
 
             if (!token) {
-                router.push("/register");
+                router.push("/login");
                 return;
             }
 
@@ -50,7 +50,7 @@ export default function Admin() {
 
                 if (!meResponse.ok) {
                     localStorage.removeItem("token");
-                    router.push("/register");
+                    router.push("/login");
                     return;
                 }
 
