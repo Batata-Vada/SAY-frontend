@@ -74,6 +74,7 @@ export default function PracticePage() {
   const [loginRequired, setLoginRequired] = useState(false);
   const [sessions, setSessions] = useState<PracticeSession[]>([]);
   const [readiness, setReadiness] = useState<TrainingReadiness | null>(null);
+  const [readinessUnavailable, setReadinessUnavailable] = useState(false);
   const [sessionBusy, setSessionBusy] = useState<number | null>(null);
   const [sessionMessage, setSessionMessage] = useState("");
   const [clock, setClock] = useState(Date.now());
@@ -93,15 +94,18 @@ export default function PracticePage() {
   const loadReadiness = useCallback(async () => {
     try {
       const response = await apiRequest("/api/me/practice-sessions/readiness");
-      if (response.ok) {
-        const data: TrainingReadiness = await response.json();
-        if (typeof data.verified_timed_solves === "number" &&
-            typeof data.required_timed_solves === "number") {
-          setReadiness(data);
-        }
+      if (!response.ok) throw new Error("Unable to load training readiness");
+      const data: TrainingReadiness = await response.json();
+      if (!Number.isInteger(data.verified_timed_solves) ||
+          !Number.isInteger(data.required_timed_solves) ||
+          data.verified_timed_solves < 0 ||
+          data.required_timed_solves < 1) {
+        throw new Error("Invalid training readiness response");
       }
+      setReadiness(data);
+      setReadinessUnavailable(false);
     } catch {
-      // Recommendations remain available if readiness cannot be fetched.
+      setReadinessUnavailable(true);
     }
   }, []);
 
@@ -139,11 +143,11 @@ export default function PracticePage() {
   const hasActiveSession = sessions.some(session => session.status === "ACTIVE");
 
   useEffect(() => {
-    if (!hasActiveSession) return;
     const refresh = window.setInterval(() => {
       void loadSessions();
       void loadReadiness();
-    }, 5000);
+    }, hasActiveSession ? 5000 : 30000);
+    if (!hasActiveSession) return () => window.clearInterval(refresh);
     const tick = window.setInterval(() => setClock(Date.now()), 1000);
     return () => {
       window.clearInterval(refresh);
@@ -221,6 +225,11 @@ export default function PracticePage() {
     }
   }
 
+  const verifiedCount = readiness?.verified_timed_solves ?? 0;
+  const requiredCount = readiness?.required_timed_solves ?? 5;
+  const remainingCount = Math.max(0, requiredCount - verifiedCount);
+  const readinessPercent = Math.min(100, Math.round((verifiedCount / requiredCount) * 100));
+
   const activeSession = sessions.find((session) => session.status === "ACTIVE");
   const latestFinishedSession = sessions.find((session) => session.status === "FINISHED");
 
@@ -238,10 +247,73 @@ export default function PracticePage() {
         <p className="text-xs uppercase tracking-widest text-green-400">SAY / Practice</p>
         <h1 className="mt-4 text-4xl font-semibold">Find your next problem.</h1>
         <p className="mt-4 max-w-2xl text-neutral-400">
-          Recommended problems come from your Codeforces history. SAY uses its default
-          recommender for newer accounts and Project Red when sufficient verified practice
-          history is available.
+          Practice Codeforces problems suited to your current level. Project Red can use
+          verified timed practice history when enough evidence and a validated model are available.
         </p>
+        {!loginRequired && (
+          <section
+            aria-labelledby="ml-readiness-heading"
+            className="mt-8 rounded-xl border border-neutral-800 bg-neutral-900/70 p-5 sm:p-6"
+          >
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 id="ml-readiness-heading" className="text-lg font-semibold text-neutral-100">
+                  Progress toward ML recommendations
+                </h2>
+                <p className="mt-1 text-sm text-neutral-400">
+                  Complete distinct, rated Codeforces problems using SAY's timed practice.
+                </p>
+              </div>
+              {readiness && (
+                <span className="rounded-full border border-neutral-700 px-3 py-1 text-sm font-semibold text-green-300">
+                  {verifiedCount} / {requiredCount} verified
+                </span>
+              )}
+            </div>
+            {readiness ? (
+              <div className="mt-5">
+                <div
+                  role="progressbar"
+                  aria-label="Verified timed solves toward ML readiness"
+                  aria-valuemin={0}
+                  aria-valuemax={requiredCount}
+                  aria-valuenow={Math.min(verifiedCount, requiredCount)}
+                  className="h-3 w-full overflow-hidden rounded-full bg-neutral-800"
+                >
+                  <div
+                    className="h-full rounded-full bg-green-500 transition-[width] duration-300"
+                    style={{ width: `${readinessPercent}%` }}
+                  />
+                </div>
+                <p className="mt-3 font-medium text-neutral-100" aria-live="polite">
+                  {readiness.account_sync_status === "NOT_LINKED"
+                    ? "Link a verified Codeforces account to start tracking progress."
+                    : readiness.account_sync_status !== "SUCCEEDED"
+                      ? "Codeforces synchronization is needed to confirm your timed solves."
+                      : remainingCount === 0
+                        ? "Your timed practice history is ready for ML feature extraction."
+                        : `${remainingCount} more distinct verified ${remainingCount === 1 ? "problem" : "problems"} to reach ML history readiness.`}
+                </p>
+                <p className="mt-2 text-sm text-neutral-400">
+                  Each solve must be officially accepted, rated, and completed during a SAY timer
+                  lasting at least 60 seconds. Repeating a solved problem does not increase the count.
+                </p>
+                {remainingCount === 0 && (
+                  <p className="mt-2 text-sm text-neutral-400">
+                    Reaching this goal does not activate the ML model automatically. Project Red
+                    also needs eligible training outcomes, a validated model, and ML serving enabled.
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="mt-4 text-sm text-neutral-400" role="status">
+                {readinessUnavailable
+                  ? "Could not load your verified history. Check your sign-in and backend connection."
+                  : "Checking your verified Codeforces practice history..."}
+              </p>
+            )}
+          </section>
+        )}
         <div className="mt-6 flex flex-wrap items-center gap-3">
           <label htmlFor="recommendation-mode" className="text-sm text-neutral-300">Practice type</label>
           <select
@@ -274,22 +346,7 @@ export default function PracticePage() {
                 {result.recommendation_engine === "project_red" ? "Project Red" : "SAY recommender"}
               </span>
             </div>
-            {readiness && (
-              <div className="mt-3 rounded border border-neutral-800 px-4 py-3 text-sm text-neutral-300" role="status">
-                <p className="font-medium text-neutral-200">
-                  Verified timed solve history: {readiness.verified_timed_solves} / {readiness.required_timed_solves}
-                </p>
-                <p className="mt-1 text-neutral-400">
-                  {readiness.history_ready_for_future_sessions
-                    ? "Historical features are ready for a future qualifying session. An eligible outcome is still required for training."
-                    : `${readiness.remaining_timed_solves} more distinct verified timed solves are required before a future practice session can become an ML training example.`}
-                </p>
-                <p className="mt-1 text-xs text-neutral-500">
-                  Source sync: {readiness.account_sync_status}. Only official solves observed before a later session count.
-                </p>
-              </div>
-            )}
-            {result.experience && (
+                        {result.experience && (
               <p className="mt-3 text-sm text-neutral-400">
                 {result.experience.solved_problems} solved problems · {result.experience.rated_contests === null
                   ? "Contest history not yet available"
@@ -304,10 +361,10 @@ export default function PracticePage() {
             )}
             {result.recommendation_engine !== "project_red" && (
               <p className="mt-2 text-sm text-neutral-500">
-                {result.selection_reason === "new_user"
-                  ? "The default recommender is active while you build experience."
-                  : result.selection_reason === "timed_official_solves_required"
-                    ? "Project Red needs more officially verified timed practice sessions. The default recommender remains active."
+                {result.selection_reason === "timed_official_solves_required"
+                  ? "Project Red needs more officially verified timed practice sessions. The default recommender remains active."
+                  : result.selection_reason === "project_red_disabled"
+                    ? "The default recommender is active because Project Red serving is not enabled."
                     : "The default recommender is active for your current data."}
               </p>
             )}
