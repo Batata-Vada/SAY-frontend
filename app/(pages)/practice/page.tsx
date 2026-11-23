@@ -31,6 +31,15 @@ type RecommendationResponse = {
   notes: string[];
 };
 
+type TrainingReadiness = {
+  verified_timed_solves: number;
+  required_timed_solves: number;
+  remaining_timed_solves: number;
+  history_ready_for_future_sessions: boolean;
+  account_sync_status: string;
+  note: string;
+};
+
 type PracticeSession = {
   id: number;
   problem_id: number;
@@ -64,6 +73,7 @@ export default function PracticePage() {
   const [error, setError] = useState("");
   const [loginRequired, setLoginRequired] = useState(false);
   const [sessions, setSessions] = useState<PracticeSession[]>([]);
+  const [readiness, setReadiness] = useState<TrainingReadiness | null>(null);
   const [sessionBusy, setSessionBusy] = useState<number | null>(null);
   const [sessionMessage, setSessionMessage] = useState("");
   const [clock, setClock] = useState(Date.now());
@@ -77,6 +87,21 @@ export default function PracticePage() {
       }
     } catch {
       // Recommendations still work without a practice-session connection.
+    }
+  }, []);
+
+  const loadReadiness = useCallback(async () => {
+    try {
+      const response = await apiRequest("/api/me/practice-sessions/readiness");
+      if (response.ok) {
+        const data: TrainingReadiness = await response.json();
+        if (typeof data.verified_timed_solves === "number" &&
+            typeof data.required_timed_solves === "number") {
+          setReadiness(data);
+        }
+      }
+    } catch {
+      // Recommendations remain available if readiness cannot be fetched.
     }
   }, []);
 
@@ -108,19 +133,23 @@ export default function PracticePage() {
   useEffect(() => {
     void loadRecommendations(mode);
     void loadSessions();
-  }, [loadRecommendations, loadSessions]);
+    void loadReadiness();
+  }, [loadRecommendations, loadSessions, loadReadiness]);
 
   const hasActiveSession = sessions.some(session => session.status === "ACTIVE");
 
   useEffect(() => {
     if (!hasActiveSession) return;
-    const refresh = window.setInterval(() => void loadSessions(), 5000);
+    const refresh = window.setInterval(() => {
+      void loadSessions();
+      void loadReadiness();
+    }, 5000);
     const tick = window.setInterval(() => setClock(Date.now()), 1000);
     return () => {
       window.clearInterval(refresh);
       window.clearInterval(tick);
     };
-  }, [hasActiveSession, loadSessions]);
+  }, [hasActiveSession, loadSessions, loadReadiness]);
 
   async function handleSession(problemId: number, session?: PracticeSession) {
     setSessionBusy(problemId);
@@ -139,6 +168,7 @@ export default function PracticePage() {
         ? "Practice session finished. SAY will verify the official Codeforces result automatically."
         : "Practice timer started. SAY will verify official Codeforces submissions automatically.");
       await loadSessions();
+      await loadReadiness();
     } catch (err) {
       setSessionMessage(err instanceof Error ? err.message : "Could not update practice session.");
       await loadSessions();
@@ -175,6 +205,7 @@ export default function PracticePage() {
         if (!response.ok) throw new Error(await getErrorMessage(response));
       }
       await loadSessions();
+      await loadReadiness();
       setSessionMessage("Timer started. SAY is checking official Codeforces submissions automatically.");
       if (tab && !tab.closed) {
         tab.location.replace(url);
@@ -243,6 +274,21 @@ export default function PracticePage() {
                 {result.recommendation_engine === "project_red" ? "Project Red" : "SAY recommender"}
               </span>
             </div>
+            {readiness && (
+              <div className="mt-3 rounded border border-neutral-800 px-4 py-3 text-sm text-neutral-300" role="status">
+                <p className="font-medium text-neutral-200">
+                  Verified timed solve history: {readiness.verified_timed_solves} / {readiness.required_timed_solves}
+                </p>
+                <p className="mt-1 text-neutral-400">
+                  {readiness.history_ready_for_future_sessions
+                    ? "Historical features are ready for a future qualifying session. An eligible outcome is still required for training."
+                    : `${readiness.remaining_timed_solves} more distinct verified timed solves are required before a future practice session can become an ML training example.`}
+                </p>
+                <p className="mt-1 text-xs text-neutral-500">
+                  Source sync: {readiness.account_sync_status}. Only official solves observed before a later session count.
+                </p>
+              </div>
+            )}
             {result.experience && (
               <p className="mt-3 text-sm text-neutral-400">
                 {result.experience.solved_problems} solved problems · {result.experience.rated_contests === null
