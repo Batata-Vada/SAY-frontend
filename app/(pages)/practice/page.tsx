@@ -20,6 +20,7 @@ type Recommendation = {
 };
 
 type RecommendationResponse = {
+  run_id?: string;
   recommendations: Recommendation[];
   recommendation_engine: "default" | "project_red";
   selection_reason: string;
@@ -37,6 +38,10 @@ type PracticeSession = {
   started_at: string;
   duration_seconds: number | null;
   official_solve_verified: boolean;
+  latest_verdict?: string | null;
+  latest_submission_id?: number | null;
+  elapsed_seconds?: number | null;
+  last_checked_at?: string | null;
 };
 
 function safeCodeforcesUrl(candidate: string): string | null {
@@ -61,6 +66,7 @@ export default function PracticePage() {
   const [sessions, setSessions] = useState<PracticeSession[]>([]);
   const [sessionBusy, setSessionBusy] = useState<number | null>(null);
   const [sessionMessage, setSessionMessage] = useState("");
+  const [clock, setClock] = useState(Date.now());
 
   const loadSessions = useCallback(async () => {
     try {
@@ -102,8 +108,19 @@ export default function PracticePage() {
   useEffect(() => {
     void loadRecommendations(mode);
     void loadSessions();
-
   }, [loadRecommendations, loadSessions]);
+
+  const hasActiveSession = sessions.some(session => session.status === "ACTIVE");
+
+  useEffect(() => {
+    if (!hasActiveSession) return;
+    const refresh = window.setInterval(() => void loadSessions(), 5000);
+    const tick = window.setInterval(() => setClock(Date.now()), 1000);
+    return () => {
+      window.clearInterval(refresh);
+      window.clearInterval(tick);
+    };
+  }, [hasActiveSession, loadSessions]);
 
   async function handleSession(problemId: number, session?: PracticeSession) {
     setSessionBusy(problemId);
@@ -119,8 +136,8 @@ export default function PracticePage() {
       const data: { message?: string } = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.message || `Practice request failed (${response.status})`);
       setSessionMessage(session
-        ? "Practice session finished. An accepted Codeforces submission must be synchronized before it can be used for ML."
-        : "Practice timer started. Solve the problem on Codeforces, then finish the timer here.");
+        ? "Practice session finished. SAY will verify the official Codeforces result automatically."
+        : "Practice timer started. SAY will verify official Codeforces submissions automatically.");
       await loadSessions();
     } catch (err) {
       setSessionMessage(err instanceof Error ? err.message : "Could not update practice session.");
@@ -130,7 +147,58 @@ export default function PracticePage() {
     }
   }
 
+  async function openCodeforcesProblem(problem: Recommendation) {
+    const url = safeCodeforcesUrl(problem.url);
+    if (!url || sessionBusy !== null) return;
+
+    const current = sessions.find((session) => session.status === "ACTIVE");
+    if (current && current.problem_id !== problem.problem_id) {
+      setSessionMessage("Finish the current practice session before opening another problem.");
+      return;
+    }
+
+    // Claim the popup synchronously so browsers do not block it after an API call.
+    const tab = window.open("about:blank", "_blank");
+    if (tab) tab.opener = null;
+    setSessionBusy(problem.problem_id);
+    setSessionMessage("");
+
+    try {
+      if (!current) {
+        const response = await apiRequest("/api/me/practice-sessions", {
+          method: "POST",
+          body: JSON.stringify({
+            problem_id: problem.problem_id,
+            ...(result?.run_id ? { recommendation_run_id: result.run_id } : {}),
+          }),
+        });
+        if (!response.ok) throw new Error(await getErrorMessage(response));
+      }
+      await loadSessions();
+      setSessionMessage("Timer started. SAY is checking official Codeforces submissions automatically.");
+      if (tab && !tab.closed) {
+        tab.location.replace(url);
+      } else {
+        window.location.assign(url);
+      }
+    } catch (error) {
+      tab?.close();
+      setSessionMessage(error instanceof Error ? error.message : "Could not start the timer.");
+      await loadSessions();
+    } finally {
+      setSessionBusy(null);
+    }
+  }
+
   const activeSession = sessions.find((session) => session.status === "ACTIVE");
+
+  const activeDuration = activeSession
+    ? Math.max(0, Math.floor((clock - new Date(activeSession.started_at).getTime()) / 1000))
+    : 0;
+  const formatDuration = (seconds: number) =>
+    [Math.floor(seconds / 3600), Math.floor((seconds % 3600) / 60), seconds % 60]
+      .map(value => String(value).padStart(2, "0"))
+      .join(":");
 
   return (
     <main className="min-h-screen bg-neutral-950 px-6 py-14 text-neutral-100 sm:px-10">
@@ -203,6 +271,14 @@ export default function PracticePage() {
                   A practice timer is active for problem #{activeSession.problem_id}.
                   Only verified official solves are used for model features.
                 </p>
+                <p className="font-mono text-green-300" aria-label="Elapsed practice time">
+                  {formatDuration(activeDuration)}
+                </p>
+                <p aria-live="polite">
+                  {activeSession.latest_verdict
+                    ? `Latest official verdict: ${activeSession.latest_verdict}`
+                    : "Waiting for a Codeforces submission..."}
+                </p>
                 <button
                   type="button"
                   onClick={() => void handleSession(activeSession.problem_id, activeSession)}
@@ -251,14 +327,14 @@ export default function PracticePage() {
                         </Link>
 
                         {url ? (
-                          <a
-                            className="text-sm text-green-400 hover:underline"
-                            href={url}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                          <button
+                            type="button"
+                            className="text-sm text-green-400 hover:underline disabled:opacity-40"
+                            onClick={() => void openCodeforcesProblem(p)}
+                            disabled={sessionBusy !== null || Boolean(activeSession && activeSession.problem_id !== p.problem_id)}
                           >
                             Open on Codeforces ↗
-                          </a>
+                          </button>
                         ) : (
                           <span className="text-sm text-neutral-500">URL unavailable</span>
                         )}
@@ -269,8 +345,8 @@ export default function PracticePage() {
               </div>
             )}
             <p className="mt-3 text-xs text-neutral-500">
-              The timer measures time between start and finish. It does not judge submitted code.
-              Sync accepted Codeforces submissions from your Submissions page to verify completed practice.
+              Opening Codeforces starts a server-recorded timer. SAY checks official submissions in the background and finishes the session after an accepted verdict.
+              Automatic verification requires the Codeforces watcher to be running.
             </p>
           </section>
         )}

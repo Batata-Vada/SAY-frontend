@@ -34,3 +34,14 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+
+## Automatic Codeforces practice tracking
+
+The Practice page starts a timer when you select **Open on Codeforces**.
+It periodically refreshes official submission status through SAY-backend,
+while the backend's separate `flask --app main watch-cf-practice` worker
+checks the linked Codeforces account and completes sessions upon a verified
+`OK` verdict. SAY shows pending and failed verdicts without stopping the
+timer. The timer continues when the browser tab is closed; a continuously
+running backend worker is required. No browser-to-Codeforces scraping occurs.
