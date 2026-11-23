@@ -191,6 +191,7 @@ export default function PracticePage() {
   }
 
   const activeSession = sessions.find((session) => session.status === "ACTIVE");
+  const latestFinishedSession = sessions.find((session) => session.status === "FINISHED");
 
   const activeDuration = activeSession
     ? Math.max(0, Math.floor((clock - new Date(activeSession.started_at).getTime()) / 1000))
@@ -287,6 +288,20 @@ export default function PracticePage() {
                 >
                   {sessionBusy === activeSession.problem_id ? "Saving..." : "Finish active timer"}
                 </button>
+              </div>
+            )}
+            {!activeSession && latestFinishedSession && (
+              <div className="mt-3 rounded border border-neutral-700 px-4 py-3 text-sm" role="status">
+                {latestFinishedSession.official_solve_verified ? (
+                  <p className="text-green-300">
+                    Accepted on Codeforces — practice session #{latestFinishedSession.id} verified and saved.
+                  </p>
+                ) : (
+                  <p className="text-neutral-300">
+                    Last practice session #{latestFinishedSession.id} finished.
+                    SAY has not verified an accepted Codeforces submission for it.
+                  </p>
+                )}
               </div>
             )}
             {result.recommendations.length === 0 ? (
