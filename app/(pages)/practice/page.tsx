@@ -181,6 +181,27 @@ export default function PracticePage() {
     }
   }
 
+  async function discardSession(session: PracticeSession) {
+    if (sessionBusy !== null) return;
+    setSessionBusy(session.problem_id);
+    setSessionMessage("");
+    try {
+      const response = await apiRequest(`/api/me/practice-sessions/${session.id}/abandon`, {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+      if (!response.ok) throw new Error(await getErrorMessage(response));
+      setSessionMessage("Previous timer discarded. You can start a new session.");
+      await loadSessions();
+      await loadReadiness();
+    } catch (err) {
+      setSessionMessage(err instanceof Error ? err.message : "Could not discard timer.");
+      await loadSessions();
+    } finally {
+      setSessionBusy(null);
+    }
+  }
+
   async function openCodeforcesProblem(problem: Recommendation) {
     const url = safeCodeforcesUrl(problem.url);
     if (!url || sessionBusy !== null) return;
@@ -338,6 +359,38 @@ export default function PracticePage() {
         {loginRequired && <p role="status" className="mt-5 text-neutral-300">Please <Link href="/login" className="text-green-400 underline">sign in with Codeforces</Link> to see your recommended problems.</p>}
         {error && <p role="alert" className="mt-5 text-red-400">{error}{/sync|stale|rebuild|outdated/i.test(error) ? " SAY is refreshing Codeforces progress automatically; try Refresh recommendations shortly." : ""}</p>}
         {loading && !result && <p role="status" className="mt-6 text-neutral-400">Loading your recommended problems...</p>}
+        {sessionMessage && <p role="status" className="mt-4 text-sm text-yellow-300">{sessionMessage}</p>}
+        {activeSession && (
+          <section aria-label="Active practice timer" className="mt-6 rounded-lg border border-yellow-700/50 bg-neutral-900 px-4 py-4 text-sm">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <p className="font-medium text-neutral-100">Timer still active · Problem #{activeSession.problem_id}</p>
+                <p className="mt-1 text-neutral-400">
+                  Timers are saved by SAY-backend, so a page reload or code change does not end a session.
+                  Continue solving, or discard the old timer to start fresh.
+                </p>
+              </div>
+              <span className="font-mono text-lg text-green-300" aria-label="Elapsed practice time">
+                {formatDuration(activeDuration)}
+              </span>
+            </div>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <button type="button" onClick={() => void discardSession(activeSession)}
+                disabled={sessionBusy !== null}
+                className="rounded-md border border-red-700 px-3 py-2 text-red-300 hover:bg-red-950/40 disabled:opacity-40">
+                {sessionBusy === activeSession.problem_id ? "Updating..." : "Discard timer"}
+              </button>
+              <button type="button" onClick={() => void handleSession(activeSession.problem_id, activeSession)}
+                disabled={sessionBusy !== null || activeDuration < 60}
+                className="rounded-md border border-neutral-700 px-3 py-2 text-neutral-200 hover:border-neutral-500 disabled:opacity-40">
+                Finish timer
+              </button>
+            </div>
+            <p className="mt-2 text-xs text-neutral-500">
+              Discarding marks this timer abandoned; it does not create a training outcome.
+            </p>
+          </section>
+        )
         {result && (
           <section className="mt-9">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -368,7 +421,6 @@ export default function PracticePage() {
                     : "The default recommender is active for your current data."}
               </p>
             )}
-            {sessionMessage && <p role="status" className="mt-4 text-sm text-yellow-300">{sessionMessage}</p>}
             {activeSession && (
               <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-neutral-400">
                 <p>
