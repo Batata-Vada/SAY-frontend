@@ -199,10 +199,20 @@ export default function PracticePage() {
             )}
             {sessionMessage && <p role="status" className="mt-4 text-sm text-yellow-300">{sessionMessage}</p>}
             {activeSession && (
-              <p className="mt-3 text-sm text-neutral-400">
-                A practice timer is active for problem #{activeSession.problem_id}.
-                Start times are recorded by the SAY server; only verified official solves are used for model features.
-              </p>
+              <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-neutral-400">
+                <p>
+                  A practice timer is active for problem #{activeSession.problem_id}.
+                  Only verified official solves are used for model features.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void handleSession(activeSession.problem_id, activeSession)}
+                  disabled={sessionBusy !== null}
+                  className="rounded border border-neutral-700 px-3 py-2 text-neutral-200 hover:border-neutral-500 disabled:opacity-40"
+                >
+                  {sessionBusy === activeSession.problem_id ? "Saving..." : "Finish active timer"}
+                </button>
+              </div>
             )}
             {result.recommendations.length === 0 ? (
               <p className="mt-6 text-neutral-400">No eligible problems were found in this practice mode. Try another mode or sync your submissions.</p>
