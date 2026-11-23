@@ -43,9 +43,9 @@ function safeCodeforcesUrl(candidate: string): string | null {
   try {
     const parsed = new URL(candidate);
     if (parsed.protocol === "https:" && parsed.hostname === "codeforces.com" &&
-        (/^\/problemset\/problem\/\d+\/[A-Za-z0-9]+$/.test(parsed.pathname) ||
-         /^\/contest\/\d+\/problem\/[A-Za-z0-9]+$/.test(parsed.pathname)) &&
-        !parsed.search && !parsed.hash && !parsed.port) return parsed.href;
+      (/^\/problemset\/problem\/\d+\/[A-Za-z0-9]+$/.test(parsed.pathname) ||
+        /^\/contest\/\d+\/problem\/[A-Za-z0-9]+$/.test(parsed.pathname)) &&
+      !parsed.search && !parsed.hash && !parsed.port) return parsed.href;
   } catch {
     return null;
   }
@@ -102,8 +102,7 @@ export default function PracticePage() {
   useEffect(() => {
     void loadRecommendations(mode);
     void loadSessions();
-  // Only the initial render should initiate the first request.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [loadRecommendations, loadSessions]);
 
   async function handleSession(problemId: number, session?: PracticeSession) {
@@ -237,13 +236,32 @@ export default function PracticePage() {
                           disabled={sessionBusy !== null || (!ownActive && Boolean(activeSession))}
                           className="rounded border border-neutral-700 px-3 py-2 text-sm text-neutral-200 hover:border-neutral-500 disabled:cursor-not-allowed disabled:opacity-40"
                         >
-                          {sessionBusy === p.problem_id ? "Saving..." : ownActive ? "Finish timer" : "Start timer"}
+                          {sessionBusy === p.problem_id
+                            ? "Saving..."
+                            : ownActive
+                              ? "Finish timer"
+                              : "Start timer"}
                         </button>
+
+                        <Link
+                          href={`/practice/forum/${p.problem_id}`}
+                          className="rounded border border-neutral-700 px-3 py-2 text-sm text-neutral-300 hover:border-green-500 hover:text-green-400"
+                        >
+                          Discuss
+                        </Link>
+
                         {url ? (
-                          <a className="text-sm text-green-400 hover:underline" href={url} target="_blank" rel="noopener noreferrer">
+                          <a
+                            className="text-sm text-green-400 hover:underline"
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
                             Open on Codeforces ↗
                           </a>
-                        ) : <span className="text-sm text-neutral-500">URL unavailable</span>}
+                        ) : (
+                          <span className="text-sm text-neutral-500">URL unavailable</span>
+                        )}
                       </div>
                     </article>
                   );

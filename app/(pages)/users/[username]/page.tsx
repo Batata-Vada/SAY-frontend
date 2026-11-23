@@ -5,8 +5,7 @@ import { useParams } from "next/navigation";
 
 
 import {
-    Linkedin,
-    Instagram,
+
     Globe,
     GraduationCap,
     CalendarDays,
@@ -15,6 +14,8 @@ import {
     Loader2,
     UserRound,
 } from "lucide-react";
+
+import { FaLinkedin, FaInstagram } from "react-icons/fa";
 
 const API_URL =
     process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:5001";
@@ -155,7 +156,7 @@ export default function UserProfilePage() {
             name: "Instagram",
             url: profile.instagram_url,
             visible: profile.show_instagram,
-            icon: Instagram,
+            icon: FaInstagram,
         },
         {
             name: "X",
@@ -167,7 +168,7 @@ export default function UserProfilePage() {
             name: "LinkedIn",
             url: profile.linkedin_url,
             visible: profile.show_linkedin,
-            icon: Linkedin,
+            icon: FaLinkedin,
         },
         {
             name: "LeetCode",
