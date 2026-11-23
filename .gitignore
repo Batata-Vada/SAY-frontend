@@ -39,3 +39,39 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Share safe example values, but never live environment files
+!.env.example
+!.env.*.example
+
+# Local editors, caches and test reports
+.vscode/
+.idea/
+.turbo/
+.cache/
+.eslintcache
+/next-env.d.ts
+/playwright-report/
+/test-results/
+/storybook-static/
+.npm/
+.pnpm-store/
+*.log
+*.swp
+*.swo
+*~
+Thumbs.db
+
+# Local data, export dumps and credentials
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+*.sqlite-*
+*.sqlite3-*
+*.key
+*.p12
+*.pfx
+.envrc
+.direnv/
+/public/uploads/
