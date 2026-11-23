@@ -75,6 +75,9 @@ export default function Navbar() {
         <div className="flex flex-wrap items-center gap-4 text-sm sm:gap-6">
           <Link href="/" className="text-neutral-300 hover:text-white">Home</Link>
           <Link href="/practice" className="text-neutral-300 hover:text-white">Practice</Link>
+          <Link href="/discussions" className="text-neutral-300 hover:text-white">
+            Discussions
+          </Link>
           {user && (
             <Link href="/my-submissions" className="text-neutral-300 hover:text-white">Submissions</Link>
           )}
