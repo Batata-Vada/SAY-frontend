@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { apiRequest } from "@/app/(pages)/settings/(components)/api";
 import type { Problem } from "@/lib/problems";
 
 export default function ProblemWorkspace({ problem }: { problem: Problem }) {
@@ -46,22 +47,8 @@ if __name__ == "__main__":
     setStatus("");
 
     try {
-      const token = localStorage.getItem("token");
-
-      if (!token) {
-        setStatus("Please log in before submitting.");
-        return;
-      }
-
-
-      const apiBase = "http://127.0.0.1:5001";
-
-      const response = await fetch(`${apiBase}/submit`, {
+      const response = await apiRequest("/submit", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: token,
-        },
         body: JSON.stringify({
           question_id: problem.number,
           question_title: problem.title,
@@ -78,7 +65,7 @@ if __name__ == "__main__":
       }
 
       setStatus(
-        `Submission saved! ID: ${data.submission_id}, file: ${data.filename}`
+        `Source code saved (not judged). ID: ${data.submission_id}, file: ${data.filename}`
       );
     } catch (error) {
       console.error("Submission error:", error);
@@ -95,7 +82,7 @@ if __name__ == "__main__":
     <main className="h-[calc(100vh-4rem)] min-h-[600px] overflow-hidden bg-neutral-950 text-neutral-100">
       <header className="flex h-12 items-center justify-between border-b border-neutral-800 px-4 sm:px-6">
         <div className="flex items-center gap-3 text-sm">
-          <Link href="/competition" className="text-neutral-500 hover:text-white">
+          <Link href="/practice" className="text-neutral-500 hover:text-white">
             Competition
           </Link>
           <span className="text-neutral-700">/</span>

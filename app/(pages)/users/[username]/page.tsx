@@ -2,13 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import {
-    FaGithub,
-    FaLinkedin,
-    FaInstagram,
-} from "react-icons/fa";
+
 
 import {
+    Linkedin,
+    Instagram,
     Globe,
     GraduationCap,
     CalendarDays,
@@ -64,9 +62,20 @@ interface SocialLink {
     icon: React.ElementType;
 }
 
+function safeExternalUrl(raw: string | null | undefined): string | null {
+    if (!raw) return null;
+    try {
+        const url = new URL(raw);
+        if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+        return url.href;
+    } catch {
+        return null;
+    }
+}
+
 export default function UserProfilePage() {
     const params = useParams<{ username: string }>();
-    const username = decodeURIComponent(params.username);
+    const username = params.username;
 
     const [profile, setProfile] = useState<PublicProfile | null>(null);
     const [loading, setLoading] = useState(true);
@@ -146,7 +155,7 @@ export default function UserProfilePage() {
             name: "Instagram",
             url: profile.instagram_url,
             visible: profile.show_instagram,
-            icon: FaInstagram,
+            icon: Instagram,
         },
         {
             name: "X",
@@ -158,7 +167,7 @@ export default function UserProfilePage() {
             name: "LinkedIn",
             url: profile.linkedin_url,
             visible: profile.show_linkedin,
-            icon: FaLinkedin,
+            icon: Linkedin,
         },
         {
             name: "LeetCode",
@@ -180,9 +189,10 @@ export default function UserProfilePage() {
         },
     ];
 
-    const visibleSocialLinks = socialLinks.filter(
-        (link) => link.visible && link.url
-    );
+    const visibleSocialLinks = socialLinks
+        .filter((link) => link.visible)
+        .map((link) => ({ ...link, url: safeExternalUrl(link.url) }))
+        .filter((link) => Boolean(link.url));
     const displayName = profile.display_name?.trim() || profile.name;
 
     return (

@@ -1,244 +1,101 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { apiRequest, getErrorMessage } from "@/app/(pages)/settings/(components)/api";
+import { Button } from "@/components/ui/button";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
+type AdminUser = { uid: number; name: string; privilege: string };
 
-type User = {
-    uid: number;
-    name: string;
-    email: string;
-    privilege: string;
-};
+export default function AdminPage() {
+  const router = useRouter();
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const [promoting, setPromoting] = useState<number | null>(null);
+  const [authorized, setAuthorized] = useState(false);
 
-export default function Admin() {
-
-    const router = useRouter();
-
-    const [users, setUsers] = useState<User[]>([]);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-
-        async function loadAdminPage() {
-
-            const token = localStorage.getItem("token");
-
-            if (!token) {
-                router.push("/login");
-                return;
-            }
-
-            try {
-
-                const meResponse = await fetch(
-                    "http://127.0.0.1:5001/me",
-                    {
-                        headers: {
-                            "Authorization": token
-                        }
-                    }
-                );
-
-                if (!meResponse.ok) {
-                    localStorage.removeItem("token");
-                    router.push("/login");
-                    return;
-                }
-
-                const me = await meResponse.json();
-
-                if (me.privilege !== "admin") {
-                    router.push("/not-found");
-                    return;
-                }
-
-                const usersResponse = await fetch(
-                    "http://127.0.0.1:5001/users",
-                    {
-                        headers: {
-                            "Authorization": token
-                        }
-                    }
-                );
-
-                if (!usersResponse.ok) {
-                    router.push("/not-found");
-                    return;
-                }
-
-                const data = await usersResponse.json();
-
-                setUsers(data.users);
-
-            } catch (error) {
-
-                console.error(error);
-                router.push("/not-found");
-
-            } finally {
-
-                setLoading(false);
-
-            }
-        }
-
-        loadAdminPage();
-
-    }, [router]);
-
-
-    async function makeAdmin(uid: number) {
-
-        const token = localStorage.getItem("token");
-
-        const response = await fetch(
-            `http://127.0.0.1:5001/users/make-admin/${uid}`,
-            {
-                method: "PUT",
-                headers: {
-                    "Authorization": token || ""
-                }
-            }
-        );
-
-        if (response.ok) {
-
-            setUsers(
-                users.map((user) =>
-                    user.uid === uid
-                        ? {
-                            ...user,
-                            privilege: "admin"
-                        }
-                        : user
-                )
-            );
-        }
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const sessionResponse = await apiRequest("/auth/session");
+      if (sessionResponse.status === 401) {
+        router.replace("/login");
+        return;
+      }
+      if (!sessionResponse.ok) throw new Error(await getErrorMessage(sessionResponse));
+      const session = await sessionResponse.json();
+      if (session.privilege !== "admin") {
+        setError("Only SAY administrators can view this page.");
+        return;
+      }
+      const response = await apiRequest("/users");
+      if (!response.ok) throw new Error(await getErrorMessage(response));
+      const data = await response.json();
+      setUsers(Array.isArray(data.users) ? data.users : []);
+      setAuthorized(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to load users.");
+    } finally {
+      setLoading(false);
     }
+  }, [router]);
 
+  useEffect(() => { void load(); }, [load]);
 
-    async function deleteUser(uid: number) {
-
-        const token = localStorage.getItem("token");
-
-        const response = await fetch(
-            `http://127.0.0.1:5001/users/delete/${uid}`,
-            {
-                method: "DELETE",
-                headers: {
-                    "Authorization": token || ""
-                }
-            }
-        );
-
-        if (response.ok) {
-
-            setUsers(
-                users.filter(
-                    (user) => user.uid !== uid
-                )
-            );
-        }
+  async function promote(uid: number) {
+    if (!window.confirm("Grant administrator access to this SAY account?")) return;
+    setPromoting(uid);
+    setError("");
+    setMessage("");
+    try {
+      const response = await apiRequest(`/users/make-admin/${uid}`, { method: "PUT" });
+      if (!response.ok) throw new Error(await getErrorMessage(response));
+      setUsers((old) => old.map((u) => u.uid === uid ? { ...u, privilege: "admin" } : u));
+      setMessage("Administrator access granted.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to grant administrator access.");
+    } finally {
+      setPromoting(null);
     }
+  }
 
-
-    if (loading) {
-        return (
-            <div className="flex min-h-screen items-center justify-center">
-                Loading...
-            </div>
-        );
-    }
-
-
-    return (
-        <div className="p-8">
-
-            <h1 className="mb-6 text-2xl font-bold">
-                Admin Panel
-            </h1>
-
+  return (
+    <main className="min-h-screen bg-neutral-950 px-5 py-12 text-neutral-100 sm:px-10">
+      <div className="mx-auto max-w-5xl space-y-6">
+        <h1 className="text-3xl font-semibold">SAY administration</h1>
+        <p className="text-sm text-neutral-400">Manage verified SAY users and account privileges.</p>
+        {loading && <p role="status">Loading users...</p>}
+        {error && <p role="alert" className="text-red-400">{error}</p>}
+        {message && <p role="status" className="text-green-400">{message}</p>}
+        {!loading && authorized && (
+          <div className="overflow-x-auto">
             <Table>
-
-                <TableHeader>
-                    <TableRow>
-
-                        <TableHead>UID</TableHead>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Email</TableHead>
-                        <TableHead>Privilege</TableHead>
-                        <TableHead>Actions</TableHead>
-
-                    </TableRow>
-                </TableHeader>
-
-                <TableBody>
-
-                    {users.map((user) => (
-
-                        <TableRow key={user.uid}>
-
-                            <TableCell>
-                                {user.uid}
-                            </TableCell>
-
-                            <TableCell>
-                                {user.name}
-                            </TableCell>
-
-                            <TableCell>
-                                {user.email}
-                            </TableCell>
-
-                            <TableCell>
-                                {user.privilege}
-                            </TableCell>
-
-                            <TableCell>
-
-                                <div className="flex gap-2">
-
-                                    {user.privilege !== "admin" && (
-                                        <button
-                                            onClick={() =>
-                                                makeAdmin(user.uid)
-                                            }
-                                            className="rounded bg-green-600 px-3 py-1 text-white"
-                                        >
-                                            Make Admin
-                                        </button>
-                                    )}
-
-                                    <button
-                                        onClick={() =>
-                                            deleteUser(user.uid)
-                                        }
-                                        className="rounded bg-red-500 px-3 py-1 text-white"
-                                    >
-                                        Delete
-                                    </button>
-
-                                </div>
-
-                            </TableCell>
-
-                        </TableRow>
-
-                    ))}
-
-                </TableBody>
-
+              <TableHeader><TableRow><TableHead>UID</TableHead><TableHead>SAY username</TableHead><TableHead>Role</TableHead><TableHead>Action</TableHead></TableRow></TableHeader>
+              <TableBody>
+                {users.map((u) => (
+                  <TableRow key={u.uid}>
+                    <TableCell>{u.uid}</TableCell>
+                    <TableCell><Link href={`/users/${encodeURIComponent(u.name)}`} className="text-green-400 hover:underline">{u.name}</Link></TableCell>
+                    <TableCell>{u.privilege}</TableCell>
+                    <TableCell>{u.privilege !== "admin" ? (
+                      <Button type="button" disabled={promoting !== null} onClick={() => void promote(u.uid)} className="bg-green-600 text-white hover:bg-green-500">
+                        {promoting === u.uid ? "Granting..." : "Make admin"}
+                      </Button>
+                    ) : "—"}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
             </Table>
-
-        </div>
-    );
+          </div>
+        )}
+        {!loading && authorized && users.length === 0 && <p>No accounts found.</p>}
+        <p className="text-xs text-neutral-500">Account deletion is intentionally unavailable: the backend requires a reviewed data-retention workflow.</p>
+      </div>
+    </main>
+  );
 }

@@ -2,10 +2,9 @@
 
 import { useEffect, useState } from "react";
 
-import {
-    FaLinkedin,
-    FaInstagram,
-} from "react-icons/fa";
+
+
+import { FaLinkedin, FaInstagram } from "react-icons/fa";
 
 import {
     Globe,
@@ -60,6 +59,17 @@ interface SocialLink {
     url: string | null | undefined;
     visible: boolean | undefined;
     icon: React.ElementType;
+}
+
+function safeExternalUrl(raw: string | null | undefined): string | null {
+    if (!raw) return null;
+    try {
+        const url = new URL(raw);
+        if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+        return url.href;
+    } catch {
+        return null;
+    }
 }
 
 export default function MyProfilePage() {
@@ -197,9 +207,10 @@ export default function MyProfilePage() {
         },
     ];
 
-    const visibleSocialLinks = socialLinks.filter(
-        (link) => link.visible && link.url?.trim()
-    );
+    const visibleSocialLinks = socialLinks
+        .filter((link) => link.visible)
+        .map((link) => ({ ...link, url: safeExternalUrl(link.url) }))
+        .filter((link) => Boolean(link.url));
     const displayName = profile.display_name?.trim() || profile.name;
 
     return (
