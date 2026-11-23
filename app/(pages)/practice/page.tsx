@@ -38,6 +38,11 @@ type TrainingReadiness = {
   history_ready_for_future_sessions: boolean;
   account_sync_status: string;
   note: string;
+  ml_model_ready?: boolean;
+  ml_model_version?: string | null;
+  ml_serving_enabled?: boolean;
+  ml_state?: string;
+  ml_status_message?: string;
 };
 
 type PracticeSession = {
@@ -320,10 +325,26 @@ export default function PracticePage() {
                   lasting at least 60 seconds. Repeating a solved problem does not increase the count.
                 </p>
                 {remainingCount === 0 && (
-                  <p className="mt-2 text-sm text-neutral-400">
-                    Reaching this goal does not activate the ML model automatically. Project Red
-                    also needs eligible training outcomes, a validated model, and ML serving enabled.
-                  </p>
+                  <div className="mt-4 space-y-2 rounded-lg border border-neutral-700/70 bg-neutral-950/60 p-4 text-sm">
+                    <p className="font-medium text-green-300">
+                      Personal history requirement completed.
+                    </p>
+                    <p className="text-neutral-300" role="status">
+                      {readiness.ml_status_message ??
+                        "Project Red also needs enough real training outcomes, independent validation, and serving enabled."}
+                    </p>
+                    {readiness.ml_state && (
+                      <p className="text-xs text-neutral-400">
+                        Model: {readiness.ml_model_ready
+                          ? `Validated (${readiness.ml_model_version || "version unavailable"})`
+                          : "Not yet validated"} · Serving: {readiness.ml_serving_enabled ? "Enabled" : "Disabled"}
+                      </p>
+                    )}
+                    <p className="text-xs text-neutral-500">
+                      Additional verified sessions after this milestone can supply historical training examples.
+                      Your recommendations continue to work through SAY's existing recommender meanwhile.
+                    </p>
+                  </div>
                 )}
               </div>
             ) : (
@@ -412,13 +433,21 @@ export default function PracticePage() {
                 {" "} (target {result.difficulty_prediction.center})
               </p>
             )}
-            {result.recommendation_engine !== "project_red" && (
-              <p className="mt-2 text-sm text-neutral-500">
+            {result.recommendation_engine === "project_red" ? (
+              <p className="mt-2 text-sm text-green-300" role="status">
+                Project Red selected this difficulty range using a validated real-data model.
+              </p>
+            ) : (
+              <p className="mt-2 text-sm text-neutral-500" role="status">
                 {result.selection_reason === "timed_official_solves_required"
-                  ? "Project Red needs more officially verified timed practice sessions. The default recommender remains active."
+                  ? "Project Red needs additional eligible timed solves for this request. SAY's regular recommender is active."
                   : result.selection_reason === "project_red_disabled"
-                    ? "The default recommender is active because Project Red serving is not enabled."
-                    : "The default recommender is active for your current data."}
+                    ? "Your history can be ready while Project Red serving remains disabled. SAY's regular recommender is active."
+                    : result.selection_reason === "model_unavailable"
+                      ? "Project Red has no usable validated real-data model. SAY's regular recommender is active."
+                      : result.selection_reason === "insufficient_model_candidates"
+                        ? "Project Red could not find enough suitable candidate problems. SAY's regular recommender is active."
+                        : "SAY's regular recommender is active for this request."}
               </p>
             )}
             {!activeSession && latestFinishedSession && (
