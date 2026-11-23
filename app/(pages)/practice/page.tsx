@@ -233,7 +233,7 @@ export default function PracticePage() {
         </div>
 
         {loginRequired && <p role="status" className="mt-5 text-neutral-300">Please <Link href="/login" className="text-green-400 underline">sign in with Codeforces</Link> to see your recommended problems.</p>}
-        {error && <p role="alert" className="mt-5 text-red-400">{error} If your history has not been imported, queue a sync from <Link href="/my-submissions" className="underline">Submissions</Link>.</p>}
+        {error && <p role="alert" className="mt-5 text-red-400">{error}{/sync|stale|rebuild|outdated/i.test(error) ? " SAY is refreshing Codeforces progress automatically; try Refresh recommendations shortly." : ""}</p>}
         {loading && !result && <p role="status" className="mt-6 text-neutral-400">Loading your recommended problems...</p>}
         {result && (
           <section className="mt-9">
