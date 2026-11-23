@@ -390,7 +390,7 @@ export default function PracticePage() {
               Discarding marks this timer abandoned; it does not create a training outcome.
             </p>
           </section>
-        )
+        )}
         {result && (
           <section className="mt-9">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -399,7 +399,7 @@ export default function PracticePage() {
                 {result.recommendation_engine === "project_red" ? "Project Red" : "SAY recommender"}
               </span>
             </div>
-                        {result.experience && (
+            {result.experience && (
               <p className="mt-3 text-sm text-neutral-400">
                 {result.experience.solved_problems} solved problems · {result.experience.rated_contests === null
                   ? "Contest history not yet available"
@@ -420,30 +420,6 @@ export default function PracticePage() {
                     ? "The default recommender is active because Project Red serving is not enabled."
                     : "The default recommender is active for your current data."}
               </p>
-            )}
-            {activeSession && (
-              <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-neutral-400">
-                <p>
-                  A practice timer is active for problem #{activeSession.problem_id}.
-                  Only verified official solves are used for model features.
-                </p>
-                <p className="font-mono text-green-300" aria-label="Elapsed practice time">
-                  {formatDuration(activeDuration)}
-                </p>
-                <p aria-live="polite">
-                  {activeSession.latest_verdict
-                    ? `Latest official verdict: ${activeSession.latest_verdict}`
-                    : "Waiting for a Codeforces submission..."}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => void handleSession(activeSession.problem_id, activeSession)}
-                  disabled={sessionBusy !== null}
-                  className="rounded border border-neutral-700 px-3 py-2 text-neutral-200 hover:border-neutral-500 disabled:opacity-40"
-                >
-                  {sessionBusy === activeSession.problem_id ? "Saving..." : "Finish active timer"}
-                </button>
-              </div>
             )}
             {!activeSession && latestFinishedSession && (
               <div className="mt-3 rounded border border-neutral-700 px-4 py-3 text-sm" role="status">
